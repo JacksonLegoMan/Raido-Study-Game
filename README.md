@@ -1,0 +1,964 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Radio Rescue — Ham Radio Adventure</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323:wght@400&display=swap');
+ 
+  *{margin:0;padding:0;box-sizing:border-box;image-rendering:pixelated}
+  :root{
+    --sand:#e8c97e;--ocean:#2a6bb5;--sky:#87ceeb;--dark:#1a1a2e;
+    --green:#3ddc84;--red:#ff4757;--yellow:#ffd32a;--white:#f0f0f0;
+    --panel:#0d1117;--panel2:#161b22;--border:#30363d;--text:#e6edf3;
+    --accent:#58a6ff;--orange:#ff8c00;
+  }
+  body{background:#0d1117;color:#e6edf3;font-family:'VT323',monospace;font-size:18px;overflow:hidden;height:100vh;width:100vw}
+  canvas{display:block}
+ 
+  #app{width:100vw;height:100vh;display:flex;flex-direction:column}
+  #topbar{background:#161b22;border-bottom:2px solid #30363d;padding:6px 12px;display:flex;align-items:center;gap:16px;flex-shrink:0}
+  #topbar .title{font-family:'Press Start 2P';font-size:10px;color:#ffd32a;letter-spacing:1px}
+  .stat-pill{background:#0d1117;border:1px solid #30363d;padding:2px 8px;font-size:14px;border-radius:0}
+  .stat-pill span{color:#58a6ff}
+ 
+  #main{display:flex;flex:1;overflow:hidden}
+  #game-view{flex:1;position:relative;overflow:hidden}
+  #game-canvas{width:100%;height:100%}
+ 
+  #side-panel{width:340px;background:#161b22;border-left:2px solid #30363d;display:flex;flex-direction:column;flex-shrink:0}
+  #dialog-box{background:#0d1117;border-bottom:2px solid #30363d;padding:10px;min-height:120px;flex-shrink:0}
+  #dialog-name{font-family:'Press Start 2P';font-size:8px;color:#ffd32a;margin-bottom:6px}
+  #dialog-text{font-size:16px;line-height:1.4;color:#e6edf3}
+ 
+  #action-area{flex:1;overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:8px}
+  .action-btn{background:#0d1117;border:2px solid #30363d;color:#e6edf3;font-family:'VT323';font-size:18px;padding:8px 12px;cursor:pointer;text-align:left;transition:background 0.1s;width:100%}
+  .action-btn:hover{background:#1f2937;border-color:#58a6ff}
+  .action-btn:disabled{opacity:0.4;cursor:not-allowed}
+  .action-btn.highlight{border-color:#ffd32a;color:#ffd32a}
+ 
+  /* QUIZ MODAL */
+  #quiz-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:100;align-items:center;justify-content:center}
+  #quiz-modal.active{display:flex}
+  #quiz-box{background:#161b22;border:2px solid #30363d;width:600px;max-width:95vw;max-height:90vh;overflow-y:auto;padding:20px}
+  #quiz-category{font-family:'Press Start 2P';font-size:8px;color:#58a6ff;margin-bottom:8px}
+  #quiz-q{font-size:18px;line-height:1.5;margin-bottom:16px;color:#e6edf3}
+  .quiz-opt{background:#0d1117;border:2px solid #30363d;color:#e6edf3;font-family:'VT323';font-size:18px;padding:10px 14px;cursor:pointer;width:100%;text-align:left;margin-bottom:8px;display:block}
+  .quiz-opt:hover{background:#1f2937;border-color:#58a6ff}
+  .quiz-opt.correct{border-color:#3ddc84;background:#0d2818;color:#3ddc84}
+  .quiz-opt.wrong{border-color:#ff4757;background:#2d0c0c;color:#ff4757}
+  #quiz-feedback{font-size:16px;margin-top:10px;padding:10px;display:none}
+  #quiz-next{display:none;background:#0d1117;border:2px solid #ffd32a;color:#ffd32a;font-family:'VT323';font-size:20px;padding:10px 20px;cursor:pointer;margin-top:10px}
+  #quiz-progress{font-family:'Press Start 2P';font-size:8px;color:#888;margin-bottom:12px}
+ 
+  /* MORSE MODAL */
+  #morse-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:100;align-items:center;justify-content:center}
+  #morse-modal.active{display:flex}
+  #morse-box{background:#161b22;border:2px solid #30363d;width:600px;max-width:95vw;padding:20px}
+  #morse-title{font-family:'Press Start 2P';font-size:10px;color:#ffd32a;margin-bottom:16px}
+  #morse-char{font-family:'Press Start 2P';font-size:48px;color:#ffd32a;text-align:center;margin:20px 0}
+  #morse-code{font-size:32px;text-align:center;letter-spacing:6px;margin-bottom:20px;color:#58a6ff}
+  #morse-light{width:60px;height:60px;border-radius:50%;background:#333;margin:0 auto 20px;border:3px solid #555;transition:background 0.05s}
+  #morse-light.on{background:#ffd32a;border-color:#ffd32a}
+  .morse-input{display:flex;gap:10px;margin-bottom:16px}
+  #morse-dit{background:#0d1117;border:3px solid #58a6ff;color:#58a6ff;font-family:'VT323';font-size:24px;padding:10px 20px;cursor:pointer;flex:1}
+  #morse-dah{background:#0d1117;border:3px solid #ffd32a;color:#ffd32a;font-family:'VT323';font-size:24px;padding:10px 20px;cursor:pointer;flex:1}
+  #morse-check{background:#0d1117;border:2px solid #3ddc84;color:#3ddc84;font-family:'VT323';font-size:20px;padding:8px 16px;cursor:pointer;width:100%;margin-bottom:8px}
+  #morse-close{background:#0d1117;border:2px solid #888;color:#888;font-family:'VT323';font-size:18px;padding:8px 16px;cursor:pointer;width:100%}
+  #morse-attempt{font-size:28px;text-align:center;letter-spacing:6px;min-height:36px;color:#e6edf3;margin-bottom:8px}
+  #morse-msg{font-size:16px;text-align:center;min-height:24px}
+  .morse-table{width:100%;border-collapse:collapse;font-size:16px}
+  .morse-table td{padding:4px 8px;border:1px solid #30363d}
+  .morse-table .mc{color:#58a6ff;font-size:20px;letter-spacing:4px}
+ 
+  /* INVENTORY / PROGRESS */
+  #inv-bar{background:#0d1117;border-top:2px solid #30363d;padding:8px 10px;display:flex;gap:8px;flex-wrap:wrap;flex-shrink:0}
+  .inv-item{background:#161b22;border:1px solid #30363d;padding:4px 8px;font-size:14px;color:#888}
+  .inv-item.owned{border-color:#3ddc84;color:#3ddc84}
+ 
+  /* XP BAR */
+  #xp-bar-wrap{height:6px;background:#30363d;flex:1}
+  #xp-bar-fill{height:100%;background:#58a6ff;transition:width 0.3s}
+ 
+  /* NOTIFICATION */
+  #notif{position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#161b22;border:2px solid #ffd32a;color:#ffd32a;font-family:'Press Start 2P';font-size:9px;padding:10px 16px;z-index:200;display:none;max-width:90vw;text-align:center}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="topbar">
+    <span class="title">RADIO RESCUE</span>
+    <div class="stat-pill">LVL <span id="stat-lvl">1</span></div>
+    <div class="stat-pill">XP <span id="stat-xp">0</span></div>
+    <div id="xp-bar-wrap"><div id="xp-bar-fill" style="width:0%"></div></div>
+    <div class="stat-pill">LICENSE: <span id="stat-lic">NONE</span></div>
+    <div class="stat-pill">SCORE <span id="stat-score">0</span></div>
+  </div>
+  <div id="main">
+    <div id="game-view">
+      <canvas id="game-canvas"></canvas>
+    </div>
+    <div id="side-panel">
+      <div id="dialog-box">
+        <div id="dialog-name">NARRATOR</div>
+        <div id="dialog-text">Loading...</div>
+      </div>
+      <div id="action-area" id="actions"></div>
+      <div id="inv-bar">
+        <span style="font-size:13px;color:#888;padding:4px 4px;">GEAR:</span>
+        <span class="inv-item" id="inv-radio">RADIO</span>
+        <span class="inv-item" id="inv-tech">TECH LIC.</span>
+        <span class="inv-item" id="inv-gen">GEN LIC.</span>
+        <span class="inv-item" id="inv-morse">MORSE</span>
+        <span class="inv-item" id="inv-antenna">ANTENNA</span>
+      </div>
+    </div>
+  </div>
+</div>
+ 
+<!-- QUIZ MODAL -->
+<div id="quiz-modal">
+  <div id="quiz-box">
+    <div id="quiz-category"></div>
+    <div id="quiz-progress"></div>
+    <div id="quiz-q"></div>
+    <div id="quiz-options"></div>
+    <div id="quiz-feedback"></div>
+    <button id="quiz-next" onclick="quizNext()">NEXT QUESTION &gt;&gt;</button>
+  </div>
+</div>
+ 
+<!-- MORSE MODAL -->
+<div id="morse-modal">
+  <div id="morse-box">
+    <div id="morse-title">--- MORSE CODE TRAINER ---</div>
+    <div id="morse-char">?</div>
+    <div id="morse-code"></div>
+    <div id="morse-light"></div>
+    <div id="morse-attempt"></div>
+    <div class="morse-input">
+      <button id="morse-dit" onmousedown="morseDit()" ontouchstart="morseDit()">DIT (•)</button>
+      <button id="morse-dah" onmousedown="morseDah()" ontouchstart="morseDah()">DAH (—)</button>
+    </div>
+    <button id="morse-check" onclick="morseCheck()">CHECK ANSWER</button>
+    <div id="morse-msg"></div>
+    <br>
+    <button id="morse-close" onclick="closeMorse()">BACK TO ISLAND</button>
+    <br><br>
+    <details>
+      <summary style="cursor:pointer;color:#888;font-size:15px">MORSE REFERENCE CHART</summary>
+      <br>
+      <table class="morse-table">
+        <tr><td>A</td><td class="mc">• —</td><td>B</td><td class="mc">— • • •</td><td>C</td><td class="mc">— • — •</td></tr>
+        <tr><td>D</td><td class="mc">— • •</td><td>E</td><td class="mc">•</td><td>F</td><td class="mc">• • — •</td></tr>
+        <tr><td>G</td><td class="mc">— — •</td><td>H</td><td class="mc">• • • •</td><td>I</td><td class="mc">• •</td></tr>
+        <tr><td>J</td><td class="mc">• — — —</td><td>K</td><td class="mc">— • —</td><td>L</td><td class="mc">• — • •</td></tr>
+        <tr><td>M</td><td class="mc">— —</td><td>N</td><td class="mc">— •</td><td>O</td><td class="mc">— — —</td></tr>
+        <tr><td>P</td><td class="mc">• — — •</td><td>Q</td><td class="mc">— — • —</td><td>R</td><td class="mc">• — •</td></tr>
+        <tr><td>S</td><td class="mc">• • •</td><td>T</td><td class="mc">—</td><td>U</td><td class="mc">• • —</td></tr>
+        <tr><td>V</td><td class="mc">• • • —</td><td>W</td><td class="mc">• — —</td><td>X</td><td class="mc">— • • —</td></tr>
+        <tr><td>Y</td><td class="mc">— • — —</td><td>Z</td><td class="mc">— — • •</td><td>SOS</td><td class="mc">• • • — — — • • •</td></tr>
+      </table>
+    </details>
+  </div>
+</div>
+ 
+<div id="notif"></div>
+ 
+<script>
+// ============================================================
+// QUESTION POOLS (from uploaded PDFs)
+// ============================================================
+const TECH_QUESTIONS = [
+  {q:"What is a purpose of the Amateur Radio Service?",opts:["To sell radio equipment","To monopolize airwaves","Advancing skills in the technical and communication phases of the radio art","To replace telephone networks"],a:2,cat:"T1A"},
+  {q:"Which agency regulates the Amateur Radio Service in the US?",opts:["FTC","FEMA","The FCC","ITU"],a:2,cat:"T1A"},
+  {q:"How many operator/primary station license grants may be held by one person?",opts:["One","Two","Three","Unlimited"],a:0,cat:"T1A"},
+  {q:"When is willful interference to other amateur radio stations permitted?",opts:["During emergencies","When licensed","At no time","On weekends only"],a:2,cat:"T1A"},
+  {q:"What is the International Telecommunications Union (ITU)?",opts:["A US federal agency","A UN agency for information and communication technology issues","A ham radio club","A satellite company"],a:1,cat:"T1B"},
+  {q:"Which frequency is within the 6 meter amateur band?",opts:["146.52 MHz","52.525 MHz","446.0 MHz","29.6 MHz"],a:1,cat:"T1B"},
+  {q:"Which amateur band are you using when transmitting on 146.52 MHz?",opts:["70 cm band","6 meter band","2 meter band","10 meter band"],a:2,cat:"T1B"},
+  {q:"What is the maximum PEP output for Technician operators on HF bands?",opts:["100 watts","200 watts","500 watts","1500 watts"],a:1,cat:"T1B"},
+  {q:"For which license classes are new licenses currently available?",opts:["Technician only","Technician and General only","Technician, General, and Amateur Extra","General and Amateur Extra"],a:2,cat:"T1C"},
+  {q:"What is the normal term for an FCC amateur radio license grant?",opts:["Five years","Ten years","Fifteen years","Unlimited"],a:1,cat:"T1C"},
+  {q:"When is an amateur station permitted to transmit without a control operator?",opts:["During emergencies","When automated","Never","During contest periods"],a:2,cat:"T1E"},
+  {q:"What determines the transmitting privileges of an amateur station?",opts:["The station location","The antenna height","The class of operator license held","The transceiver model"],a:2,cat:"T1E"},
+  {q:"When must a station transmit its assigned call sign?",opts:["Every 5 minutes","At least every 10 minutes during and at the end of a communication","Only at the start","Only when asked"],a:1,cat:"T1F"},
+  {q:"What is the national calling frequency for FM simplex on 2 meters?",opts:["146.000 MHz","146.520 MHz","147.000 MHz","144.200 MHz"],a:1,cat:"T2A"},
+  {q:"What is a common repeater frequency offset in the 2 meter band?",opts:["Plus or minus 100 kHz","Plus or minus 600 kHz","Plus or minus 5 MHz","Plus or minus 1 MHz"],a:1,cat:"T2A"},
+  {q:"What does CQ mean?",opts:["Cease transmitting","Calling any station","Clear frequency","Code question"],a:1,cat:"T2A"},
+  {q:"What term describes use of a sub-audible tone to open a receiver's squelch?",opts:["DTMF","PL tone","CTCSS","DSQ"],a:2,cat:"T2B"},
+  {q:"Which Q signal indicates you are receiving interference from other stations?",opts:["QRM","QSY","QRN","QSL"],a:0,cat:"T2B"},
+  {q:"Which Q signal means you are changing frequency?",opts:["QRN","QRL","QSY","QRV"],a:2,cat:"T2B"},
+  {q:"What part of the atmosphere enables radio signals to travel around the world?",opts:["Troposphere","Stratosphere","The ionosphere","Exosphere"],a:2,cat:"T3A"},
+  {q:"What is the formula for converting frequency to approximate wavelength in meters?",opts:["Wavelength = frequency × 300","Wavelength = 300 divided by frequency in MHz","Wavelength = frequency / 30","Wavelength = 3000 / frequency in kHz"],a:1,cat:"T3B"},
+  {q:"What are the frequency limits of the VHF spectrum?",opts:["3 to 30 MHz","30 to 300 MHz","300 to 3000 MHz","1 to 30 MHz"],a:1,cat:"T3B"},
+  {q:"What are the frequency limits of the UHF spectrum?",opts:["30 to 300 MHz","300 to 3000 MHz","3000 to 30000 MHz","1 to 30 GHz"],a:1,cat:"T3B"},
+  {q:"How fast does a radio wave travel through free space?",opts:["At the speed of sound","At 150,000 km/s","At the speed of light","At 1,000 km/s"],a:2,cat:"T3B"},
+  {q:"What type of wave carries radio signals?",opts:["Sound","Electromagnetic","Mechanical","Gravitational"],a:1,cat:"T3A"},
+  {q:"What is the proper location for an external SWR meter?",opts:["Between power supply and radio","In series with feed line between transmitter and antenna","Inside the transceiver","At the antenna base only"],a:1,cat:"T4A"},
+  {q:"What is the purpose of the squelch control on a transceiver?",opts:["Boost signal strength","Mute receiver output noise when no signal received","Filter interference","Adjust transmit power"],a:1,cat:"T4B"},
+  {q:"Electrical current is measured in which units?",opts:["Volts","Watts","Amperes","Ohms"],a:2,cat:"T5A"},
+  {q:"Electrical power is measured in which units?",opts:["Volts","Watts","Amperes","Ohms"],a:1,cat:"T5A"},
+  {q:"What is the name for a current that flows only in one direction?",opts:["Alternating current","Direct current","Pulsed current","Static current"],a:1,cat:"T5A"},
+  {q:"What is the unit of electromotive force?",opts:["Ampere","Ohm","Watt","The volt"],a:3,cat:"T5A"},
+  {q:"What is approximately 3 dB of power change equivalent to?",opts:["A factor of 3","A factor of 2","A factor of 10","A factor of 5"],a:1,cat:"T5B"},
+  {q:"What formula is used to calculate current in a circuit?",opts:["I = E × R","I = E / R","I = E + R","I = R / E"],a:1,cat:"T5D"},
+  {q:"What is the resistance of a circuit where 3A flows through a 90V source?",opts:["270 ohms","87 ohms","30 ohms","93 ohms"],a:2,cat:"T5D"},
+  {q:"What electrical component stores energy in an electric field?",opts:["Resistor","Capacitor","Inductor","Transistor"],a:1,cat:"T6A"},
+  {q:"What electrical component stores energy in a magnetic field?",opts:["Capacitor","Resistor","Inductor","Diode"],a:2,cat:"T6A"},
+  {q:"What electronic component allows current to flow in only one direction?",opts:["Transistor","Resistor","Diode","Capacitor"],a:2,cat:"T6B"},
+  {q:"What does LED stand for?",opts:["Low Energy Device","Light Emitting Diode","Linear Electronic Driver","Large Electron Detector"],a:1,cat:"T6B"},
+  {q:"Which term describes the ability of a receiver to detect weak signals?",opts:["Selectivity","Sensitivity","Stability","Sensitivity"],a:1,cat:"T7A"},
+  {q:"What is the primary purpose of a dummy load?",opts:["To boost signal","To prevent transmitting over the air when making tests","To test antennas","To filter noise"],a:1,cat:"T7C"},
+  {q:"What does an SWR reading of 1:1 indicate?",opts:["Complete signal loss","An impedance mismatch","A perfect impedance match","Overloaded transmitter"],a:2,cat:"T7C"},
+  {q:"Which type of emission has the narrowest bandwidth?",opts:["SSB","FM","AM","CW"],a:3,cat:"T8A"},
+  {q:"What is the approximate bandwidth of an SSB voice signal?",opts:["1 kHz","3 kHz","6 kHz","15 kHz"],a:1,cat:"T8A"},
+  {q:"What type of modulation is most commonly used for VHF/UHF voice repeaters?",opts:["AM","SSB","CW","FM"],a:3,cat:"T8A"},
+  {q:"What does APRS stand for?",opts:["Amateur Packet Radio System","Automatic Packet Reporting System","Amateur Propagation Radio Service","Automatic Position Relay Station"],a:1,cat:"T8D"},
+  {q:"What is a beam antenna?",opts:["An antenna that transmits in all directions","An antenna that concentrates signals in one direction","An antenna used only for receiving","A mobile antenna"],a:1,cat:"T9A"},
+  {q:"Why is it important to have low SWR when using coaxial cable?",opts:["To increase range","To reduce signal loss","To comply with FCC rules","To prevent lightning"],a:1,cat:"T9B"},
+  {q:"What is the impedance of most coaxial cables used in amateur radio?",opts:["25 ohms","50 ohms","75 ohms","100 ohms"],a:1,cat:"T9B"},
+  {q:"What is the purpose of a fuse in an electrical circuit?",opts:["To boost power","To interrupt power in case of overload","To filter noise","To store energy"],a:1,cat:"T0A"},
+  {q:"What type of radiation are VHF and UHF radio signals?",opts:["Ionizing radiation","X-ray radiation","Non-ionizing radiation","Gamma radiation"],a:2,cat:"T0C"},
+];
+ 
+const GENERAL_QUESTIONS = [
+  {q:"On which HF/MF bands does a General class hold ALL amateur privileges?",opts:["20m and 40m only","160m, 60m, 30m, 17m, 12m, and 10m","All HF bands","80m and 15m only"],a:1,cat:"G1A"},
+  {q:"On which band is phone operation prohibited for General class?",opts:["40 meters","20 meters","30 meters","17 meters"],a:2,cat:"G1A"},
+  {q:"Which of the following frequencies is in the General class 40-meter band?",opts:["3.900 MHz","7.250 MHz","14.305 MHz","21.300 MHz"],a:1,cat:"G1A"},
+  {q:"What is the maximum transmitting power on the 12-meter band?",opts:["200W PEP","500W PEP","1500W PEP","750W PEP"],a:2,cat:"G1C"},
+  {q:"What is the maximum symbol rate for RTTY on the 20-meter band?",opts:["100 baud","300 baud","1200 baud","9600 baud"],a:1,cat:"G1C"},
+  {q:"Which sideband is most commonly used for voice communications at 14 MHz or higher?",opts:["Upper sideband","Lower sideband","Double sideband","No preference"],a:0,cat:"G2A"},
+  {q:"Which mode is most commonly used for voice on 160m, 75m, and 40m bands?",opts:["Upper sideband","Lower sideband","FM","AM"],a:1,cat:"G2A"},
+  {q:"What is the recommended way to break into a phone contact?",opts:["Transmit your call sign repeatedly","Say your call sign once","Transmit a long carrier","Say 'break break'"],a:1,cat:"G2A"},
+  {q:"What does 'QRL?' mean in CW operation?",opts:["I am busy","Are you busy / Is this frequency in use?","Change frequency","I am ready"],a:1,cat:"G2C"},
+  {q:"What does 'zero beat' mean in CW operation?",opts:["Transmitting at zero power","Matching transmit frequency to received signal","Using no tone","Stopping transmission"],a:1,cat:"G2C"},
+  {q:"What is the significance of a high sunspot number for HF propagation?",opts:["Worse propagation","No effect","Greater probability of good propagation at higher frequencies","Better only on low frequencies"],a:2,cat:"G3A"},
+  {q:"What is the Maximum Usable Frequency (MUF)?",opts:["The minimum frequency for communication","The maximum frequency that supports skip propagation between two points","The highest licensed frequency","The frequency limit for Technicians"],a:1,cat:"G3B"},
+  {q:"Why is the F2 region mainly responsible for longest distance propagation?",opts:["It has more ions","It is the lowest layer","Because it is the highest ionospheric region","It absorbs less energy"],a:2,cat:"G3C"},
+  {q:"What is NVIS propagation?",opts:["Near Vertical Incidence Skywave — short distance MF/HF using high elevation angles","Normal VHF Interference Suppression","Non-Vertical Inverted Skywave","Near VHF Interference Signal"],a:0,cat:"G3C"},
+  {q:"What is the purpose of a notch filter on HF transceivers?",opts:["To boost weak signals","To reduce interference from carriers in the receiver passband","To improve antenna matching","To filter digital modes"],a:0,cat:"G4A"},
+  {q:"What is meant by operating in 'split' mode?",opts:["Using two radios","Dividing power equally","The transceiver is set to different transmit and receive frequencies","Running 50% duty cycle"],a:2,cat:"G4A"},
+  {q:"What does an oscilloscope contain that a digital voltmeter does not?",opts:["A battery","Horizontal and vertical channel amplifiers","An antenna input","An RF detector"],a:1,cat:"G4B"},
+  {q:"What is impedance?",opts:["DC voltage level","Frequency divided by power","The opposition to the flow of current in an AC circuit","Signal strength in dB"],a:2,cat:"G5A"},
+  {q:"What happens when impedance of a load equals output impedance of a source?",opts:["Signal is lost","The source delivers maximum power to the load","The current doubles","Frequency shifts"],a:1,cat:"G5A"},
+  {q:"Approximately how much dB change represents a factor of 2 power change?",opts:["1 dB","3 dB","6 dB","10 dB"],a:1,cat:"G5B"},
+  {q:"What is the output PEP if an oscilloscope shows 200V peak-to-peak across 50 ohms?",opts:["200 watts","400 watts","100 watts","1000 watts"],a:2,cat:"G5B"},
+  {q:"What are typical impedances of coaxial cables used in amateur stations?",opts:["25 and 50 ohms","50 and 75 ohms","75 and 100 ohms","50 and 100 ohms"],a:1,cat:"G9A"},
+  {q:"What must be done to prevent standing waves on an antenna feed line?",opts:["Use only 50 ohm antennas","The antenna feed point impedance must be matched to the feed line","Always use a dummy load","Keep cable under 50 feet"],a:1,cat:"G9A"},
+  {q:"What is the radiation pattern of a half-wave dipole in free space?",opts:["Omnidirectional sphere","A figure-eight at right angles to the antenna","A beam pointing along the antenna","Random"],a:1,cat:"G9B"},
+  {q:"What is the approximate length of a 1/2 wave dipole for 14.250 MHz?",opts:["16 feet","32 feet","64 feet","8 feet"],a:1,cat:"G9B"},
+  {q:"What increases the bandwidth of a Yagi antenna?",opts:["More directors","Larger diameter elements","Longer boom","Higher power"],a:1,cat:"G9C"},
+  {q:"What does 'front-to-back ratio' mean for a Yagi?",opts:["Total gain of antenna","Power radiated in the major lobe compared to the opposite direction","SWR difference front to back","Impedance ratio"],a:1,cat:"G9C"},
+  {q:"What must you do if RF exposure evaluation shows your station exceeds limits?",opts:["File a report with FCC","Take action to prevent human exposure to the excessive RF fields","Reduce transmit frequency","Increase antenna height"],a:1,cat:"G0A"},
+  {q:"Which wire in a 4-conductor 240V device should be attached to fuses?",opts:["All four wires","Only the ground wire","Only the two wires carrying voltage","Only the neutral wire"],a:2,cat:"G0B"},
+];
+ 
+// MORSE CODE DATA
+const MORSE = {
+  A:'.-',B:'-...',C:'-.-.',D:'-..',E:'.',F:'..-.',G:'--.',H:'....',
+  I:'..',J:'.---',K:'-.-',L:'.-..',M:'--',N:'-.',O:'---',P:'.--.',
+  Q:'--.-',R:'.-.',S:'...',T:'-',U:'..-',V:'...-',W:'.--',X:'-..-',
+  Y:'-.--',Z:'--..',
+};
+ 
+// ============================================================
+// GAME STATE
+// ============================================================
+let state = {
+  scene: 'beach',
+  xp: 0, level: 1, score: 0,
+  techCorrect: 0, techTotal: 0,
+  genCorrect: 0, genTotal: 0,
+  morseCorrect: 0,
+  hasRadio: false, hasTechLicense: false, hasGenLicense: false,
+  hasMorse: false, hasAntenna: false,
+  techQuizDone: false, genQuizDone: false,
+  currentDialog: '',
+};
+ 
+// SCENE DEFINITIONS
+const SCENES = {
+  beach: {
+    name: 'CRASHED BEACH',
+    bg: 'beach',
+    dialog: "You wash ashore on a deserted island. Your ship has sunk. Nearby you see wreckage — and what looks like a battered radio set among the debris.",
+    actions: () => [
+      {label:'🔍 Examine the wreckage', fn: examineWreckage},
+      {label:'📻 Try to use the radio', fn: tryRadio, disabled: !state.hasRadio},
+      {label:'📡 Build an antenna', fn: buildAntenna, disabled: !state.hasTechLicense || state.hasAntenna},
+      {label:'📖 Study morse code', fn: openMorse},
+      {label:'🏃 Move to radio shack', fn: ()=>gotoScene('shack'), disabled: !state.hasRadio},
+    ]
+  },
+  shack: {
+    name: 'RADIO SHACK',
+    bg: 'shack',
+    dialog: "You've set up a rough radio shack in the wreckage. A hand-crank generator hums. The transceiver glows green. Time to make contact with the outside world.",
+    actions: () => [
+      {label:'📡 Call CQ (need Tech license)', fn: callCQ, disabled: !state.hasTechLicense},
+      {label:'📝 Study for Tech License', fn: startTechQuiz},
+      {label:'📚 Study for General License', fn: startGenQuiz, disabled: !state.hasTechLicense},
+      {label:'• — • Morse practice', fn: openMorse},
+      {label:'🏖 Back to beach', fn: ()=>gotoScene('beach')},
+    ]
+  },
+  contact: {
+    name: 'MAKING CONTACT',
+    bg: 'ocean',
+    dialog: "Static crackles... then a voice: 'Station calling CQ, this is W5RES. We hear you! What is your situation?'",
+    actions: () => [
+      {label:"📢 'Mayday! I'm stranded!'", fn: mayday},
+      {label:'📝 Give your call sign', fn: giveCallsign, disabled: !state.hasTechLicense},
+      {label:'📡 Try long-range contact (need General)', fn: longRange, disabled: !state.hasGenLicense},
+      {label:'🏠 Back to shack', fn: ()=>gotoScene('shack')},
+    ]
+  },
+  rescue: {
+    name: 'RESCUE INCOMING!',
+    bg: 'rescue',
+    dialog: "You've done it! Coast Guard received your transmission. A helicopter is inbound. You used your radio knowledge to save yourself!",
+    actions: () => [
+      {label:'🎉 Play again!', fn: resetGame},
+      {label:'📝 Keep studying morse', fn: openMorse},
+      {label:'📚 Review Tech questions', fn: startTechQuiz},
+    ]
+  }
+};
+ 
+let currentScene = 'beach';
+ 
+// ============================================================
+// CANVAS RENDERING
+// ============================================================
+const canvas = document.getElementById('game-canvas');
+const ctx = canvas.getContext('2d');
+let animFrame = 0;
+ 
+function resizeCanvas() {
+  const view = document.getElementById('game-view');
+  canvas.width = view.clientWidth;
+  canvas.height = view.clientHeight;
+}
+ 
+function drawPixelRect(x,y,w,h,color){
+  ctx.fillStyle = color;
+  ctx.fillRect(Math.floor(x),Math.floor(y),Math.floor(w),Math.floor(h));
+}
+ 
+function drawText(text,x,y,color,size=12,font='Press Start 2P'){
+  ctx.font = `${size}px "${font}"`;
+  ctx.fillStyle = color;
+  ctx.fillText(text,Math.floor(x),Math.floor(y));
+}
+ 
+// Beach scene
+function drawBeach(){
+  const W=canvas.width, H=canvas.height;
+  // Sky gradient (pixelated bands)
+  const skyColors=['#1a1a4e','#2a3070','#3a4a9e','#5577bb','#7799cc','#99bbdd'];
+  const band = H*0.45/skyColors.length;
+  skyColors.forEach((c,i)=>drawPixelRect(0,i*band,W,band+1,c));
+  
+  // Sun / moon
+  drawPixelRect(W*0.8,H*0.05,32,32,'#ffd32a');
+  
+  // Animated waves
+  for(let i=0;i<8;i++){
+    const wy = H*0.55 + i*12;
+    const wc = i<3 ? '#1a5fa8' : (i<5 ? '#2a6bb5' : '#3a7bc5');
+    drawPixelRect(0,wy,W,12,wc);
+    // Wave crests
+    for(let x=0;x<W;x+=20){
+      const offset = Math.floor((Math.sin((x+animFrame*2+i*30)/40)*4));
+      drawPixelRect(x,wy+offset,8,3,'#5599cc');
+    }
+  }
+  
+  // Sand
+  drawPixelRect(0, H*0.55+96, W, H*0.45-96, '#c4963a');
+  // Sand detail
+  for(let x=0;x<W;x+=24){
+    drawPixelRect(x, H*0.6, 12, 4, '#d4a64a');
+  }
+  
+  // Wreckage
+  const wx = W*0.15;
+  const wy2 = H*0.65;
+  drawPixelRect(wx, wy2, 80, 20, '#5a3a1a');    // plank
+  drawPixelRect(wx+10, wy2-40, 10, 40, '#3a2a0a'); // mast
+  drawPixelRect(wx-10, wy2+10, 100, 10, '#4a2a0a');
+  drawPixelRect(wx+40, wy2-20, 40, 20, '#5a2a0a');
+  
+  // Radio in wreckage
+  if(!state.hasRadio){
+    drawPixelRect(wx+20, wy2-15, 24, 16, '#334');
+    drawPixelRect(wx+22, wy2-13, 8, 8, '#55f');
+    drawPixelRect(wx+32, wy2-13, 4, 4, '#f90');
+    drawText('RADIO',wx+10,wy2+5,'#ffd32a',8,'VT323');
+  }
+  
+  // Antenna mast if built
+  if(state.hasAntenna){
+    const ax = W*0.6;
+    drawPixelRect(ax, H*0.3, 4, H*0.4, '#888');
+    drawPixelRect(ax-40, H*0.32, 84, 4, '#aaa'); // horizontal element
+    // Guy wires
+    ctx.strokeStyle='#666'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(ax,H*0.32); ctx.lineTo(ax-60,H*0.68); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(ax,H*0.32); ctx.lineTo(ax+60,H*0.68); ctx.stroke();
+    drawText('ANTENNA',ax-20,H*0.28,'#3ddc84',8,'VT323');
+  }
+  
+  // Player character (pixelart figure)
+  const px = W*0.45, py = H*0.6;
+  drawPixelRect(px,py-24,12,12,'#f4c68a');   // head
+  drawPixelRect(px+2,py-20,3,3,'#3a2a0a');  // eye
+  drawPixelRect(px+7,py-20,3,3,'#3a2a0a');
+  drawPixelRect(px+1,py-12,10,18,'#2255aa'); // body
+  drawPixelRect(px-4,py-10,6,12,'#2255aa');  // left arm
+  drawPixelRect(px+10,py-10,6,12,'#2255aa'); // right arm
+  drawPixelRect(px+1,py+6,4,12,'#334455');   // left leg
+  drawPixelRect(px+7,py+6,4,12,'#334455');
+}
+ 
+function drawShack(){
+  const W=canvas.width, H=canvas.height;
+  // Dark room
+  drawPixelRect(0,0,W,H,'#1a1a1a');
+  // Floor
+  drawPixelRect(0,H*0.7,W,H*0.3,'#3a2a1a');
+  // Floor boards
+  for(let x=0;x<W;x+=60) drawPixelRect(x,H*0.7,2,H*0.3,'#2a1a0a');
+  
+  // Desk
+  drawPixelRect(W*0.1,H*0.55,W*0.8,H*0.1,'#5a3a1a');
+  // Transceiver
+  drawPixelRect(W*0.2,H*0.42,100,60,'#223344');
+  drawPixelRect(W*0.22,H*0.44,30,20,'#1a2a3a');
+  for(let i=0;i<5;i++) drawPixelRect(W*0.24+i*8,H*0.46,5,5,'#3355aa');
+  // Screen glow
+  const glow = Math.sin(animFrame*0.05)*0.3+0.7;
+  ctx.fillStyle = `rgba(80,180,100,${glow*0.5})`;
+  ctx.fillRect(W*0.22+2,H*0.44+2,26,16);
+  drawPixelRect(W*0.22+2,H*0.44+2,26,16,'#00aa44');
+  // VFO knob
+  drawPixelRect(W*0.32,H*0.48,20,20,'#445566');
+  // Mic
+  drawPixelRect(W*0.5,H*0.5,24,30,'#334');
+  drawPixelRect(W*0.52,H*0.52,8,8,'#666');
+  // Logbook
+  drawPixelRect(W*0.65,H*0.5,60,40,'#eee8d5');
+  for(let i=0;i<5;i++) drawPixelRect(W*0.67,H*0.52+i*6,40,2,'#aaa');
+  
+  // Window with stars
+  drawPixelRect(W*0.75,H*0.1,100,80,'#0a0a2a');
+  for(let i=0;i<12;i++){
+    const sx=(i*37)%90, sy=(i*23)%70;
+    const bright = Math.sin(animFrame*0.03+i)*0.5+0.5;
+    ctx.fillStyle=`rgba(255,255,200,${bright})`;
+    ctx.fillRect(W*0.75+sx,H*0.1+sy,2,2);
+  }
+  drawPixelRect(W*0.75,H*0.1,4,80,'#5a3a1a');
+  drawPixelRect(W*0.875-2,H*0.1,4,80,'#5a3a1a');
+  drawPixelRect(W*0.75,H*0.1+38,100,4,'#5a3a1a');
+  
+  // Generator
+  drawPixelRect(W*0.05,H*0.55,60,40,'#445544');
+  drawPixelRect(W*0.07,H*0.57,16,16,'#334433');
+  const spin = animFrame%8 < 4 ? '#3ddc84' : '#333';
+  drawPixelRect(W*0.09,H*0.59,8,8,spin);
+  drawText('GEN',W*0.06,H*0.6,'#3ddc84',10,'VT323');
+}
+ 
+function drawOcean(){
+  const W=canvas.width, H=canvas.height;
+  // Night sky
+  drawPixelRect(0,0,W,H*0.5,'#060614');
+  for(let i=0;i<30;i++){
+    const sx=(i*71+13)%W, sy=(i*43)%(H*0.45);
+    drawPixelRect(sx,sy,2,2,'#ffffee');
+  }
+  // Ocean
+  for(let i=0;i<10;i++){
+    const wy = H*0.5+i*(H*0.05);
+    const dark = Math.floor(20+i*8);
+    drawPixelRect(0,wy,W,H*0.05,`rgb(${dark},${dark+20},${dark+80})`);
+  }
+  // Radio wave animation
+  if(state.hasTechLicense){
+    for(let r=1;r<=4;r++){
+      const radius = ((animFrame*2)%(120))+(r*25);
+      ctx.strokeStyle=`rgba(80,255,100,${0.8-radius/150})`;
+      ctx.lineWidth=2;
+      ctx.beginPath();
+      ctx.arc(W*0.5,H*0.6,radius,0,Math.PI*2);
+      ctx.stroke();
+    }
+    drawText('TRANSMITTING...',W*0.3,H*0.7,'#3ddc84',12,'VT323');
+  }
+  // Ship on horizon
+  const sx = W*0.7, sy = H*0.52;
+  drawPixelRect(sx-20,sy,40,8,'#888');
+  drawPixelRect(sx-10,sy-20,4,20,'#666');
+  drawPixelRect(sx+6,sy-12,3,12,'#666');
+  drawText('RESCUE?',sx-20,sy-25,'#ffd32a',10,'VT323');
+}
+ 
+function drawRescue(){
+  const W=canvas.width, H=canvas.height;
+  drawPixelRect(0,0,W,H,'#0a1a3a');
+  // sunrise
+  for(let i=0;i<8;i++){
+    const c=Math.floor(40+i*25);
+    drawPixelRect(0,H*(0.3+i*0.06),W,H*0.07,`rgb(${c+100},${c+50},${c})`);
+  }
+  // helicopter
+  const hx=W*0.5+(Math.sin(animFrame*0.04)*30);
+  const hy=H*0.2+(Math.sin(animFrame*0.02)*10);
+  drawPixelRect(hx-30,hy,60,20,'#cc3333');
+  drawPixelRect(hx-50,hy+4,24,8,'#aa2222');  // tail
+  drawPixelRect(hx+30,hy+4,24,8,'#aa2222');
+  const blade = animFrame%4;
+  if(blade<2) drawPixelRect(hx-40,hy-4,80,4,'#888');
+  else drawPixelRect(hx-4,hy-44,8,80,'#888');
+  // rope
+  const ropelen = Math.min(animFrame*2,100);
+  drawPixelRect(hx+2,hy+20,2,ropelen,'#aa8833');
+  // ocean
+  drawPixelRect(0,H*0.75,W,H*0.25,'#1a4a8a');
+  // island
+  drawPixelRect(W*0.1,H*0.7,W*0.3,H*0.1,'#c4963a');
+  // person waving
+  const px=W*0.25, py=H*0.68;
+  drawPixelRect(px,py-16,10,10,'#f4c68a');
+  drawPixelRect(px+1,py-6,8,14,'#ff3333');
+  drawPixelRect(px-6,py-8,6,3,'#ff3333');  // waving arm
+  drawText('RESCUED!',W*0.35,H*0.5,'#ffd32a',16,'Press Start 2P');
+}
+ 
+function render(){
+  if(canvas.width===0) return;
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  const bg = SCENES[currentScene]?.bg || 'beach';
+  if(bg==='beach') drawBeach();
+  else if(bg==='shack') drawShack();
+  else if(bg==='ocean') drawOcean();
+  else if(bg==='rescue') drawRescue();
+  animFrame++;
+  requestAnimationFrame(render);
+}
+ 
+// ============================================================
+// DIALOG AND ACTIONS
+// ============================================================
+function setDialog(name, text){
+  document.getElementById('dialog-name').textContent = name;
+  document.getElementById('dialog-text').textContent = text;
+}
+ 
+function renderActions(){
+  const area = document.getElementById('action-area');
+  area.innerHTML='';
+  const scene = SCENES[currentScene];
+  const actions = scene.actions();
+  actions.forEach(a=>{
+    const btn = document.createElement('button');
+    btn.className='action-btn'+(a.highlight?' highlight':'');
+    btn.textContent = a.label;
+    if(a.disabled) btn.disabled=true;
+    btn.onclick = a.fn;
+    area.appendChild(btn);
+  });
+}
+ 
+function gotoScene(s){
+  currentScene = s;
+  const scene = SCENES[s];
+  setDialog('NARRATOR', scene.dialog);
+  renderActions();
+}
+ 
+function updateStats(){
+  document.getElementById('stat-lvl').textContent = state.level;
+  document.getElementById('stat-xp').textContent = state.xp;
+  document.getElementById('stat-score').textContent = state.score;
+  document.getElementById('stat-lic').textContent = state.hasGenLicense ? 'GENERAL' : (state.hasTechLicense ? 'TECH' : 'NONE');
+  const xpNeeded = state.level * 100;
+  const pct = Math.min((state.xp % xpNeeded) / xpNeeded * 100, 100);
+  document.getElementById('xp-bar-fill').style.width = pct+'%';
+  
+  // Inventory
+  document.getElementById('inv-radio').className = 'inv-item' + (state.hasRadio?' owned':'');
+  document.getElementById('inv-tech').className = 'inv-item' + (state.hasTechLicense?' owned':'');
+  document.getElementById('inv-gen').className = 'inv-item' + (state.hasGenLicense?' owned':'');
+  document.getElementById('inv-morse').className = 'inv-item' + (state.hasMorse?' owned':'');
+  document.getElementById('inv-antenna').className = 'inv-item' + (state.hasAntenna?' owned':'');
+}
+ 
+function gainXP(amount, reason){
+  state.xp += amount;
+  state.score += amount;
+  const needed = state.level * 100;
+  if(state.xp >= state.level*needed){
+    state.level++;
+    notify(`LEVEL UP! You are now Level ${state.level}!`);
+  }
+  if(reason) notify(`+${amount} XP — ${reason}`);
+  updateStats();
+}
+ 
+function notify(msg){
+  const el = document.getElementById('notif');
+  el.textContent = msg;
+  el.style.display = 'block';
+  setTimeout(()=>el.style.display='none', 2800);
+}
+ 
+// ============================================================
+// SCENE ACTIONS
+// ============================================================
+function examineWreckage(){
+  if(!state.hasRadio){
+    setDialog('YOU', "You dig through the wreckage... There's a waterproof case! Inside: a scratched but working HF/VHF transceiver with a hand-crank generator! You grab it.");
+    state.hasRadio = true;
+    gainXP(20, 'Found the radio!');
+    updateStats();
+    renderActions();
+    setTimeout(()=>{
+      setDialog('NARRATOR',"You have a radio! But wait — it's illegal to transmit without an FCC license. You need to pass your Technician exam first. Study up!");
+    },2500);
+  } else {
+    setDialog('NARRATOR',"You already salvaged the radio. You should head to the shack and study for your license!");
+  }
+}
+ 
+function tryRadio(){
+  if(!state.hasTechLicense){
+    setDialog('NARRATOR',"The radio works! But you can't legally transmit without an FCC license. You must pass the Technician exam. 35 questions — let's study!");
+    gotoScene('shack');
+  } else {
+    gotoScene('shack');
+  }
+}
+ 
+function buildAntenna(){
+  if(state.hasAntenna){
+    setDialog('NARRATOR',"The antenna is already built and working great!");
+    return;
+  }
+  setDialog('YOU',"Using knowledge from your Technician license studies, you construct a simple vertical antenna from wreckage pieces. Your signal should reach much further now!");
+  state.hasAntenna = true;
+  gainXP(50, 'Built the antenna!');
+  updateStats();
+  renderActions();
+}
+ 
+function callCQ(){
+  setDialog('YOU',"You key the mic: 'CQ CQ CQ this is [YOUR CALLSIGN] calling CQ and standing by...' Static... then a voice crackles back!");
+  gotoScene('contact');
+  setTimeout(()=>{
+    setDialog('W5RES', "W5RES here! Reading you 5 by 5! We're patching you through to Coast Guard. What's your position?");
+    renderActions();
+  }, 2500);
+}
+ 
+function mayday(){
+  if(!state.hasTechLicense){
+    setDialog('NARRATOR',"In a real emergency you CAN transmit — but you need to know proper procedure. Study up first, then call for help!");
+    return;
+  }
+  setDialog('YOU',"MAYDAY MAYDAY MAYDAY — This is [callsign], I am a survivor of a shipwreck at approximately [position]. I require immediate assistance. Over.");
+  gainXP(30, 'Proper emergency call!');
+  if(state.hasGenLicense){
+    setTimeout(()=>{
+      setDialog('COAST GUARD',"Survivor station, this is USCG. Message received loud and clear on all bands. Helicopter dispatched to your coordinates. ETA 45 minutes!");
+      setTimeout(()=>gotoScene('rescue'),2500);
+    },2500);
+  }
+}
+ 
+function giveCallsign(){
+  setDialog('YOU',"You identify your station with your FCC-assigned callsign as required by Part 97. You must ID every 10 minutes and at the end of each contact.");
+  gainXP(15, 'Proper station ID!');
+  renderActions();
+}
+ 
+function longRange(){
+  setDialog('YOU',"With your General class privileges, you access HF bands and reach the Coast Guard on 14.300 MHz — the International Distress Frequency on 20 meters!");
+  gainXP(60, 'General class long-range contact!');
+  setTimeout(()=>gotoScene('rescue'),2500);
+}
+ 
+function resetGame(){
+  state = {
+    scene:'beach', xp:0, level:1, score:0,
+    techCorrect:0, techTotal:0, genCorrect:0, genTotal:0, morseCorrect:0,
+    hasRadio:false, hasTechLicense:false, hasGenLicense:false,
+    hasMorse:false, hasAntenna:false, techQuizDone:false, genQuizDone:false,
+    currentDialog:'',
+  };
+  updateStats();
+  gotoScene('beach');
+}
+ 
+// ============================================================
+// QUIZ SYSTEM
+// ============================================================
+let quizState = {
+  questions: [], index: 0, correct: 0, mode: 'tech', answered: false
+};
+ 
+function shuffleArray(arr){
+  const a=[...arr];
+  for(let i=a.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [a[i],a[j]]=[a[j],a[i]];
+  }
+  return a;
+}
+ 
+function startTechQuiz(){
+  quizState = {
+    questions: shuffleArray(TECH_QUESTIONS).slice(0,15),
+    index: 0, correct: 0, mode: 'tech', answered: false
+  };
+  setDialog('NARRATOR',"Time to study for your Technician license! Answer 15 questions from the official question pool.");
+  showQuiz();
+}
+ 
+function startGenQuiz(){
+  if(!state.hasTechLicense){
+    setDialog('NARRATOR',"You need your Technician license before studying for General! Pass the Tech exam first.");
+    return;
+  }
+  quizState = {
+    questions: shuffleArray(GENERAL_QUESTIONS).slice(0,15),
+    index: 0, correct: 0, mode: 'gen', answered: false
+  };
+  setDialog('NARRATOR',"Time to study for your General license! This unlocks HF privileges and much longer range communications.");
+  showQuiz();
+}
+ 
+function showQuiz(){
+  const modal = document.getElementById('quiz-modal');
+  modal.classList.add('active');
+  showQuestion();
+}
+ 
+function showQuestion(){
+  const q = quizState.questions[quizState.index];
+  const pct = Math.round(quizState.correct/Math.max(quizState.index,1)*100)||0;
+  document.getElementById('quiz-category').textContent = `[${q.cat}] — ${quizState.mode==='tech'?'TECHNICIAN':'GENERAL'} CLASS`;
+  document.getElementById('quiz-progress').textContent = 
+    `Question ${quizState.index+1} of ${quizState.questions.length}  |  Correct: ${quizState.correct}  |  ${quizState.index>0?pct+'%':''}`;
+  document.getElementById('quiz-q').textContent = q.q;
+  document.getElementById('quiz-feedback').style.display='none';
+  document.getElementById('quiz-next').style.display='none';
+  quizState.answered = false;
+  
+  const opts = document.getElementById('quiz-options');
+  opts.innerHTML='';
+  // Shuffle option order
+  const indices = shuffleArray([0,1,2,3]);
+  indices.forEach(i=>{
+    const btn = document.createElement('button');
+    btn.className='quiz-opt';
+    btn.textContent = q.opts[i];
+    btn.onclick = ()=>answerQuestion(i, btn, q);
+    opts.appendChild(btn);
+  });
+}
+ 
+function answerQuestion(idx, btn, q){
+  if(quizState.answered) return;
+  quizState.answered = true;
+  const correct = idx === q.a;
+  const fb = document.getElementById('quiz-feedback');
+  
+  // Mark all buttons
+  document.querySelectorAll('.quiz-opt').forEach(b=>{
+    if(b.textContent === q.opts[q.a]) b.classList.add('correct');
+  });
+  btn.classList.add(correct?'correct':'wrong');
+  
+  if(correct){
+    quizState.correct++;
+    fb.style.background='#0d2818';
+    fb.style.border='1px solid #3ddc84';
+    fb.style.color='#3ddc84';
+    fb.textContent = '✓ CORRECT! +10 XP';
+    gainXP(10,'Correct answer!');
+  } else {
+    fb.style.background='#2d0c0c';
+    fb.style.border='1px solid #ff4757';
+    fb.style.color='#ff4757';
+    fb.textContent = `✗ Wrong. Correct: "${q.opts[q.a]}"`;
+  }
+  fb.style.display='block';
+  document.getElementById('quiz-next').style.display='block';
+}
+ 
+function quizNext(){
+  quizState.index++;
+  if(quizState.index >= quizState.questions.length){
+    endQuiz();
+  } else {
+    showQuestion();
+  }
+}
+ 
+function endQuiz(){
+  const pct = Math.round(quizState.correct/quizState.questions.length*100);
+  const pass = pct >= 74; // FCC requires 74% on Tech exam
+  const fb = document.getElementById('quiz-feedback');
+  const opts = document.getElementById('quiz-options');
+  opts.innerHTML = '';
+  document.getElementById('quiz-next').style.display='none';
+  document.getElementById('quiz-q').textContent = `QUIZ COMPLETE!`;
+  
+  if(pass){
+    fb.style.background='#0d2818';
+    fb.style.border='2px solid #3ddc84';
+    fb.style.color='#3ddc84';
+    if(quizState.mode==='tech'){
+      fb.textContent = `PASSED! ${quizState.correct}/${quizState.questions.length} (${pct}%) — You earned your TECHNICIAN LICENSE!`;
+      if(!state.hasTechLicense){
+        state.hasTechLicense = true;
+        gainXP(100,'Technician License earned!');
+        notify('🎉 TECHNICIAN LICENSE UNLOCKED! You can now legally transmit!');
+      }
+    } else {
+      fb.textContent = `PASSED! ${quizState.correct}/${quizState.questions.length} (${pct}%) — You earned your GENERAL LICENSE!`;
+      if(!state.hasGenLicense){
+        state.hasGenLicense = true;
+        gainXP(200,'General License earned!');
+        notify('🎉 GENERAL LICENSE UNLOCKED! HF bands are yours!');
+      }
+    }
+  } else {
+    fb.style.background='#2d0c0c';
+    fb.style.border='2px solid #ff4757';
+    fb.style.color='#ff4757';
+    fb.textContent = `FAILED: ${quizState.correct}/${quizState.questions.length} (${pct}%) — Need 74% to pass. Keep studying!`;
+    gainXP(5,'Good effort! Keep studying.');
+  }
+  fb.style.display='block';
+  
+  const closeBtn = document.createElement('button');
+  closeBtn.className='quiz-next';
+  closeBtn.textContent = pass ? 'GREAT — BACK TO ISLAND >>' : 'STUDY MORE >>';
+  closeBtn.style.display='block';
+  closeBtn.onclick = ()=>{
+    document.getElementById('quiz-modal').classList.remove('active');
+    updateStats();
+    renderActions();
+    if(pass){
+      if(quizState.mode==='tech')
+        setDialog('NARRATOR',"Congratulations! Your Technician license is active in the FCC database. You can now transmit on VHF/UHF bands legally!");
+      else
+        setDialog('NARRATOR',"Outstanding! Your General class license opens up HF bands — with proper propagation you can reach anywhere on Earth!");
+    } else {
+      setDialog('NARRATOR',"Don't give up! Review the questions you missed. The actual FCC exam needs 74% (26/35 questions correct).");
+    }
+  };
+  document.getElementById('quiz-options').appendChild(closeBtn);
+}
+ 
+// ============================================================
+// MORSE CODE TRAINER
+// ============================================================
+let morseState = {char:'', attempt:[], totalDone:0};
+const MORSE_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+ 
+function openMorse(){
+  morseState.attempt = [];
+  newMorseChar();
+  document.getElementById('morse-modal').classList.add('active');
+  document.getElementById('morse-msg').textContent = '';
+}
+ 
+function closeMorse(){
+  document.getElementById('morse-modal').classList.remove('active');
+  renderActions();
+}
+ 
+function newMorseChar(){
+  morseState.char = MORSE_CHARS[Math.floor(Math.random()*MORSE_CHARS.length)];
+  morseState.attempt = [];
+  document.getElementById('morse-char').textContent = morseState.char;
+  document.getElementById('morse-code').textContent = '';
+  document.getElementById('morse-attempt').textContent = '';
+  document.getElementById('morse-msg').textContent = 'Enter the morse code for this letter:';
+  playMorse(morseState.char);
+}
+ 
+function playMorse(char){
+  const code = MORSE[char];
+  if(!code) return;
+  const light = document.getElementById('morse-light');
+  let delay = 0;
+  const dit = 120, dah = 360, gap = 100, letterGap = 300;
+  [...code].forEach(sym=>{
+    const dur = sym==='.'?dit:dah;
+    setTimeout(()=>{light.classList.add('on');},delay);
+    delay+=dur;
+    setTimeout(()=>{light.classList.remove('on');},delay);
+    delay+=gap;
+  });
+}
+ 
+function morseDit(){
+  morseState.attempt.push('.');
+  updateMorseDisplay();
+}
+function morseDah(){
+  morseState.attempt.push('-');
+  updateMorseDisplay();
+}
+function updateMorseDisplay(){
+  const disp = morseState.attempt.join('').replace(/\./g,'• ').replace(/-/g,'— ');
+  document.getElementById('morse-attempt').textContent = disp;
+}
+ 
+function morseCheck(){
+  const attempt = morseState.attempt.join('');
+  const correct = MORSE[morseState.char];
+  const msg = document.getElementById('morse-msg');
+  if(attempt === correct){
+    msg.style.color='#3ddc84';
+    msg.textContent = `✓ CORRECT! ${morseState.char} = ${correct.replace(/\./g,'• ').replace(/-/g,'— ')}`;
+    morseState.totalDone++;
+    state.morseCorrect++;
+    gainXP(8,'Correct morse!');
+    if(state.morseCorrect>=10 && !state.hasMorse){
+      state.hasMorse=true;
+      notify('🎉 MORSE CODE PROFICIENCY UNLOCKED!');
+      gainXP(50,'Morse proficiency!');
+    }
+    updateStats();
+    setTimeout(()=>{
+      newMorseChar();
+    },1200);
+  } else {
+    msg.style.color='#ff4757';
+    msg.textContent = `✗ Wrong! You entered: ${attempt||'(nothing)'}. Correct: ${correct.replace(/\./g,'• ').replace(/-/g,'— ')}. Try again!`;
+    morseState.attempt=[];
+    document.getElementById('morse-attempt').textContent='';
+    setTimeout(()=>playMorse(morseState.char),800);
+  }
+}
+ 
+// ============================================================
+// INIT
+// ============================================================
+window.addEventListener('resize', ()=>{resizeCanvas(); renderActions();});
+resizeCanvas();
+updateStats();
+gotoScene('beach');
+setDialog('NARRATOR',"You wash ashore on a deserted island. Your ship has sunk. Nearby you see wreckage — and what looks like a battered radio set. You need to learn amateur radio to call for rescue!");
+render();
+</script>
+</body>
+</html>
